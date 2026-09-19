@@ -1,0 +1,37 @@
+{
+  "name": "@pulso/mobile",
+  "version": "0.2.0",
+  "private": true,
+  "main": "index.ts",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "export:android": "expo export --platform android --output-dir dist",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@pulso/contracts": "github:Leo-501/pulso-contracts#v0.2.0",
+    "expo": "57.0.22",
+    "expo-build-properties": "~57.0.17",
+    "expo-camera": "57.0.5",
+    "expo-crypto": "57.0.3",
+    "expo-dev-client": "~57.0.19",
+    "expo-secure-store": "57.0.4",
+    "expo-sqlite": "57.0.3",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "5.7.0",
+    "zod": "4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "prettier": "3.9.6",
+    "react-dom": "19.2.3",
+    "typescript": "^6.0.3"
+  }
+}
