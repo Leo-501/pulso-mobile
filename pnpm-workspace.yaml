@@ -1,6 +1,0 @@
-packages:
-  - '.'
-allowBuilds:
-  # Chave exigida pelo pnpm 12 para pacote git que roda `prepare`: precisa do SHA
-  # exato. Ao subir a tag do contrato, atualize o SHA aqui junto com o package.json.
-  '@pulso/contracts@https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/e88ab4423289d98c8f5861b2a3b4e4c02e55c854': true
