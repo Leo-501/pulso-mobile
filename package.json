@@ -14,7 +14,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@pulso/contracts": "github:Leo-501/pulso-contracts#v0.4.0",
+    "@pulso/contracts": "github:Leo-501/pulso-contracts#v1.0.0",
     "expo": "57.0.22",
     "expo-build-properties": "~57.0.17",
     "expo-camera": "57.0.5",

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@pulso/contracts':
-        specifier: github:Leo-501/pulso-contracts#v0.4.0
-        version: https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/2198b8eb0950c8d8eae9a499d12ae44a6f1ad62f(zod@4.6.2)
+        specifier: github:Leo-501/pulso-contracts#v1.0.0
+        version: https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/7625a53e38785c2e4183c3368c6e155111272510(zod@4.6.2)
       expo:
         specifier: 57.0.22
         version: 57.0.22(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.3.0)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
@@ -599,9 +599,9 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@pulso/contracts@https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/2198b8eb0950c8d8eae9a499d12ae44a6f1ad62f':
-    resolution: {gitHosted: true, integrity: sha512-Pkvm4p2Ll4Ib4u6qHg57lU7YCQhvFTIPZkwTacKR68RR4GrEiBYHvT7gy7I3eDemwXotwaV28Gi7EmGkCsD9Zg==, tarball: https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/2198b8eb0950c8d8eae9a499d12ae44a6f1ad62f}
-    version: 0.4.0
+  '@pulso/contracts@https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/7625a53e38785c2e4183c3368c6e155111272510':
+    resolution: {gitHosted: true, integrity: sha512-GyYSpvPgtYNlD2sx0VycBaY35px+1wglmc+9a00DXEWX1kL2F9F+YhKPI6eNg2uUgD5j91Weqwe/a8wih4zOhg==, tarball: https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/7625a53e38785c2e4183c3368c6e155111272510}
+    version: 1.0.0
     engines: {node: '>=22.18.0'}
     peerDependencies:
       zod: 4.6.2
@@ -3076,7 +3076,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@pulso/contracts@https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/2198b8eb0950c8d8eae9a499d12ae44a6f1ad62f(zod@4.6.2)':
+  '@pulso/contracts@https://codeload.github.com/Leo-501/pulso-contracts/tar.gz/7625a53e38785c2e4183c3368c6e155111272510(zod@4.6.2)':
     dependencies:
       zod: 4.6.2
 

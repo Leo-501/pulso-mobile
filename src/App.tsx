@@ -13,35 +13,35 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
-import { priorityLabels, statusLabels } from '@pulso/contracts';
+import { rotulosPrioridade, rotulosSituacao } from '@pulso/contracts';
 import {
-  qrIdentifier,
-  type CachedRecord,
-  type MobileAsset,
-  type MobileOrder,
-  type MobileOperation,
+  identificadorQr,
+  type RegistroLocal,
+  type AtivoAplicativo,
+  type OrdemAplicativo,
+  type OperacaoAplicativo,
 } from '@pulso/contracts/mobile';
-import { SyncError, type OutboxEntry } from '@pulso/contracts/offline';
+import { ErroSincronizacao, type ItemFila } from '@pulso/contracts/offline';
 import {
-  openRuntime,
-  savedSession,
-  saveSession,
-  signIn,
-  type MobileRuntime,
-  type SavedSession,
-} from './runtime';
+  abrirAmbiente,
+  sessaoSalva,
+  salvarSessao,
+  entrar,
+  type AmbienteAplicativo,
+  type SessaoSalva,
+} from './ambiente';
 
-type Screen = 'orders' | 'assets' | 'queue';
-type Answers = Record<string, 'ok' | 'nok' | 'na'>;
-const errorText = (error: unknown) =>
+type Tela = 'ordens' | 'ativos' | 'fila';
+type Respostas = Record<string, 'ok' | 'nok' | 'na'>;
+const textoDoErro = (error: unknown) =>
   error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
 function Button({
-  title,
+  titulo,
   onPress,
   disabled = false,
   secondary = false,
 }: {
-  title: string;
+  titulo: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
@@ -49,7 +49,7 @@ function Button({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={titulo}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -59,19 +59,19 @@ function Button({
         (disabled || pressed) && { opacity: 0.55 },
       ]}
     >
-      <Text style={[styles.buttonText, secondary && { color: '#143D35' }]}>{title}</Text>
+      <Text style={[styles.buttonText, secondary && { color: '#143D35' }]}>{titulo}</Text>
     </Pressable>
   );
 }
 function Field({
-  label,
+  rotulo,
   value,
   onChange,
   secure = false,
   multiline = false,
   placeholder = '',
 }: {
-  label: string;
+  rotulo: string;
   value: string;
   onChange: (value: string) => void;
   secure?: boolean;
@@ -80,9 +80,9 @@ function Field({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.rotulo}>{rotulo}</Text>
       <TextInput
-        accessibilityLabel={label}
+        accessibilityLabel={rotulo}
         value={value}
         onChangeText={onChange}
         secureTextEntry={secure}
@@ -101,24 +101,24 @@ function Login({
   enter,
   message,
 }: {
-  enter: (session: SavedSession) => Promise<void>;
+  enter: (sessao: SessaoSalva) => Promise<void>;
   message: string;
 }) {
-  const [origin, setOrigin] = useState(__DEV__ ? 'http://10.0.2.2:3333' : '');
-  const [company, setCompany] = useState(__DEV__ ? 'aurora' : '');
+  const [origem, setOrigem] = useState(__DEV__ ? 'http://10.0.2.2:3333' : '');
+  const [empresa, setEmpresa] = useState(__DEV__ ? 'aurora' : '');
   const [email, setEmail] = useState(__DEV__ ? 'tecnico@demo.local' : '');
-  const [password, setPassword] = useState('');
+  const [senha, setSenha] = useState('');
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   async function submit() {
     setBusy(true);
     setError('');
     try {
-      const session = await signIn(origin, company, email, password);
-      setPassword('');
-      await enter(session);
+      const sessao = await entrar(origem, empresa, email, senha);
+      setSenha('');
+      await enter(sessao);
     } catch (e) {
-      setError(errorText(e));
+      setError(textoDoErro(e));
     } finally {
       setBusy(false);
     }
@@ -140,16 +140,16 @@ function Login({
         </Text>
       )}
       <Field
-        label="Servidor da empresa"
-        value={origin}
-        onChange={setOrigin}
+        rotulo="Servidor da empresa"
+        value={origem}
+        onChange={setOrigem}
         placeholder="https://manutencao.suaempresa.com"
       />
-      <Field label="Empresa" value={company} onChange={setCompany} />
-      <Field label="E-mail" value={email} onChange={setEmail} />
-      <Field label="Senha" value={password} onChange={setPassword} secure />
+      <Field rotulo="Empresa" value={empresa} onChange={setEmpresa} />
+      <Field rotulo="E-mail" value={email} onChange={setEmail} />
+      <Field rotulo="Senha" value={senha} onChange={setSenha} secure />
       <Button
-        title={busy ? 'Entrando…' : 'Entrar e preparar meu turno'}
+        titulo={busy ? 'Entrando…' : 'Entrar e preparar meu turno'}
         disabled={busy}
         onPress={() => void submit()}
       />
@@ -164,15 +164,15 @@ function Scanner({ onCode, close }: { onCode: (value: string) => void; close: ()
   if (!permission?.granted)
     return (
       <View style={styles.content}>
-        <Text style={styles.title}>Ler a etiqueta da máquina</Text>
+        <Text style={styles.titulo}>Ler a etiqueta da máquina</Text>
         <Text style={styles.muted}>A câmera é usada apenas para identificar o QR Code.</Text>
         <Button
-          title="Permitir acesso à câmera"
+          titulo="Permitir acesso à câmera"
           onPress={() => {
             void requestPermission();
           }}
         />
-        <Button title="Voltar e buscar pelo código" secondary onPress={close} />
+        <Button titulo="Voltar e buscar pelo código" secondary onPress={close} />
       </View>
     );
   return (
@@ -191,24 +191,24 @@ function Scanner({ onCode, close }: { onCode: (value: string) => void; close: ()
         <Text style={styles.muted}>
           Aponte para o QR Code. O ativo precisa ter sido baixado nesta unidade.
         </Text>
-        <Button title="Voltar" secondary onPress={close} />
+        <Button titulo="Voltar" secondary onPress={close} />
       </View>
     </View>
   );
 }
 
 function RequestForm({
-  asset,
+  ativo,
   save,
   back,
 }: {
-  asset: MobileAsset;
-  save: (operation: MobileOperation) => Promise<void>;
+  ativo: AtivoAplicativo;
+  save: (operation: OperacaoAplicativo) => Promise<void>;
   back: () => void;
 }) {
-  const [title, setTitle] = useState(''),
-    [description, setDescription] = useState('');
-  const [stopped, setStopped] = useState(false),
+  const [titulo, setTitle] = useState(''),
+    [descricao, setDescription] = useState('');
+  const [parada, setStopped] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   // Reuse the same identity even if a local write succeeds but a UI refresh fails.
@@ -221,42 +221,42 @@ function RequestForm({
     try {
       await save({
         id: id.current,
-        kind: 'request.create',
-        body: {
-          asset_id: asset.id,
-          title,
-          description,
-          machine_stopped: stopped,
-          observed_at: observed.current,
+        tipo: 'solicitacao.criar',
+        corpo: {
+          ativo_id: ativo.id,
+          titulo,
+          descricao,
+          maquina_parada: parada,
+          observado_em: observed.current,
         },
       });
       back();
     } catch (e) {
-      setError(errorText(e));
+      setError(textoDoErro(e));
     } finally {
       setBusy(false);
     }
   }
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Button title="Voltar aos ativos" secondary onPress={back} disabled={busy} />
+      <Button titulo="Voltar aos ativos" secondary onPress={back} disabled={busy} />
       <Text style={styles.eyebrow}>
-        {asset.code} · {asset.location}
+        {ativo.codigo} · {ativo.local}
       </Text>
-      <Text style={styles.title}>Relatar um problema</Text>
-      <Text style={styles.muted}>{asset.name}</Text>
-      <Field label="O que aconteceu?" value={title} onChange={setTitle} />
+      <Text style={styles.titulo}>Relatar um problema</Text>
+      <Text style={styles.muted}>{ativo.nome}</Text>
+      <Field rotulo="O que aconteceu?" value={titulo} onChange={setTitle} />
       <Field
-        label="Detalhes para a manutenção"
-        value={description}
+        rotulo="Detalhes para a manutenção"
+        value={descricao}
         onChange={setDescription}
         multiline
       />
       <View style={styles.row}>
-        <Text style={[styles.label, { flex: 1 }]}>A máquina está parada</Text>
+        <Text style={[styles.rotulo, { flex: 1 }]}>A máquina está parada</Text>
         <Switch
           accessibilityLabel="A máquina está parada"
-          value={stopped}
+          value={parada}
           onValueChange={setStopped}
         />
       </View>
@@ -270,7 +270,7 @@ function RequestForm({
         </Text>
       )}
       <Button
-        title={busy ? 'Salvando…' : 'Salvar solicitação no aparelho'}
+        titulo={busy ? 'Salvando…' : 'Salvar solicitação no aparelho'}
         onPress={() => void submit()}
         disabled={busy}
       />
@@ -279,56 +279,56 @@ function RequestForm({
 }
 
 function OrderDetail({
-  order,
-  asset,
+  ordem,
+  ativo,
   queued,
   save,
   back,
 }: {
-  order: MobileOrder;
-  asset?: MobileAsset;
+  ordem: OrdemAplicativo;
+  ativo?: AtivoAplicativo;
   queued: boolean;
-  save: (operation: MobileOperation) => Promise<void>;
+  save: (operation: OperacaoAplicativo) => Promise<void>;
   back: () => void;
 }) {
-  const [answers, setAnswers] = useState<Answers>(() =>
-    Object.fromEntries(order.checklist.filter((i) => i.answer).map((i) => [i.id, i.answer!])),
+  const [respostas, setRespostas] = useState<Respostas>(() =>
+    Object.fromEntries(ordem.checklist.filter((i) => i.resposta).map((i) => [i.id, i.resposta!])),
   );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const id = useRef(Crypto.randomUUID());
-  const editable = ['in_progress', 'paused'].includes(order.status) && !queued;
+  const editable = ['in_progress', 'paused'].includes(ordem.situacao) && !queued;
   async function submit() {
     setBusy(true);
     setError('');
     try {
       await save({
         id: id.current,
-        kind: 'order.checklist',
-        order_id: order.id,
-        body: { version: order.version, answers },
+        tipo: 'ordem.checklist',
+        ordem_id: ordem.id,
+        corpo: { versao: ordem.versao, respostas },
       });
       back();
     } catch (e) {
-      setError(errorText(e));
+      setError(textoDoErro(e));
     } finally {
       setBusy(false);
     }
   }
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Button title="Voltar às minhas OS" secondary onPress={back} disabled={busy} />
+      <Button titulo="Voltar às minhas OS" secondary onPress={back} disabled={busy} />
       <Text style={styles.eyebrow}>
-        OS {order.number} · {statusLabels[order.status]}
+        OS {ordem.numero} · {rotulosSituacao[ordem.situacao]}
       </Text>
-      <Text style={styles.title}>{order.title}</Text>
+      <Text style={styles.titulo}>{ordem.titulo}</Text>
       <Text style={styles.muted}>
-        {asset?.code} · {asset?.name}
+        {ativo?.codigo} · {ativo?.nome}
       </Text>
-      <Text style={styles.body}>{order.description || 'Sem observações adicionais.'}</Text>
+      <Text style={styles.corpo}>{ordem.descricao || 'Sem observações adicionais.'}</Text>
       <Text style={styles.caption}>
-        Prazo: {order.due_date.split('-').reverse().join('/')} · Prioridade{' '}
-        {priorityLabels[order.priority]}
+        Prazo: {ordem.prazo.split('-').reverse().join('/')} · Prioridade{' '}
+        {rotulosPrioridade[ordem.prioridade]}
       </Text>
       <Text style={styles.sectionTitle}>Checklist de execução</Text>
       {queued && (
@@ -342,29 +342,29 @@ function OrderDetail({
           disponíveis no painel nesta etapa.
         </Text>
       )}
-      {order.checklist.length === 0 && (
+      {ordem.checklist.length === 0 && (
         <Text style={styles.muted}>Esta OS não possui checklist.</Text>
       )}
-      {order.checklist.map((item, index) => (
+      {ordem.checklist.map((item, index) => (
         <View key={item.id} style={styles.card}>
-          <Text style={styles.label}>
-            {index + 1}. {item.label}
+          <Text style={styles.rotulo}>
+            {index + 1}. {item.rotulo}
           </Text>
-          <View style={styles.answerRow}>
+          <View style={styles.respostaRow}>
             {(['ok', 'nok', 'na'] as const).map((answer) => (
               <Pressable
                 key={answer}
                 accessibilityRole="radio"
                 accessibilityState={{
-                  checked: answers[item.id] === answer,
+                  checked: respostas[item.id] === answer,
                   disabled: !editable || busy,
                 }}
-                accessibilityLabel={`${item.label}: ${answer === 'ok' ? 'OK' : answer === 'nok' ? 'Falha' : 'Não se aplica'}`}
+                accessibilityLabel={`${item.rotulo}: ${answer === 'ok' ? 'OK' : answer === 'nok' ? 'Falha' : 'Não se aplica'}`}
                 disabled={!editable || busy}
-                onPress={() => setAnswers({ ...answers, [item.id]: answer })}
-                style={[styles.answer, answers[item.id] === answer && styles.answerSelected]}
+                onPress={() => setRespostas({ ...respostas, [item.id]: answer })}
+                style={[styles.resposta, respostas[item.id] === answer && styles.respostaSelected]}
               >
-                <Text style={styles.label}>
+                <Text style={styles.rotulo}>
                   {answer === 'ok' ? 'OK' : answer === 'nok' ? 'Falha' : 'N/A'}
                 </Text>
               </Pressable>
@@ -377,11 +377,11 @@ function OrderDetail({
           {error}
         </Text>
       )}
-      {editable && order.checklist.length > 0 && (
+      {editable && ordem.checklist.length > 0 && (
         <Button
-          title={busy ? 'Salvando…' : 'Salvar respostas no aparelho'}
+          titulo={busy ? 'Salvando…' : 'Salvar respostas no aparelho'}
           onPress={() => void submit()}
-          disabled={busy || Object.keys(answers).length === 0}
+          disabled={busy || Object.keys(respostas).length === 0}
         />
       )}
     </ScrollView>
@@ -389,72 +389,72 @@ function OrderDetail({
 }
 
 function QueueCard({
-  entry,
-  order,
-  retry,
-  dismiss,
+  item,
+  ordem,
+  reenviar,
+  arquivar,
 }: {
-  entry: OutboxEntry;
-  order?: MobileOrder;
-  retry: () => void;
-  dismiss: () => void;
+  item: ItemFila;
+  ordem?: OrdemAplicativo;
+  reenviar: () => void;
+  arquivar: () => void;
 }) {
-  const op: MobileOperation = JSON.parse(entry.payload);
-  const labels = {
-    pending: 'Aguardando envio',
-    confirmed: 'Confirmado pelo servidor',
-    conflict: 'Precisa de revisão',
-    rejected: 'Envio recusado',
-    superseded: 'Revisão registrada',
-    dismissed: 'Arquivado neste aparelho',
+  const op: OperacaoAplicativo = JSON.parse(item.corpo);
+  const rotulos = {
+    pendente: 'Aguardando envio',
+    confirmada: 'Confirmado pelo servidor',
+    conflito: 'Precisa de revisão',
+    rejeitada: 'Envio recusado',
+    substituida: 'Revisão registrada',
+    arquivada: 'Arquivado neste aparelho',
   };
   return (
     <View style={styles.card}>
-      <Text style={styles.eyebrow}>{labels[entry.state]}</Text>
+      <Text style={styles.eyebrow}>{rotulos[item.situacao]}</Text>
       <Text style={styles.cardTitle}>
-        {op.kind === 'request.create'
-          ? op.body.title
-          : `Checklist · OS ${order?.number ?? op.order_id.slice(0, 8)}`}
+        {op.tipo === 'solicitacao.criar'
+          ? op.corpo.titulo
+          : `Checklist · OS ${ordem?.numero ?? op.ordem_id.slice(0, 8)}`}
       </Text>
-      <Text style={styles.caption}>{new Date(entry.created_at).toLocaleString('pt-BR')}</Text>
-      {op.kind === 'request.create' && <Text style={styles.body}>{op.body.description}</Text>}
-      {entry.error && <Text style={styles.warning}>{entry.error}</Text>}
-      {op.kind === 'order.checklist' &&
-        ['conflict', 'rejected', 'dismissed'].includes(entry.state) && (
+      <Text style={styles.caption}>{new Date(item.criado_em).toLocaleString('pt-BR')}</Text>
+      {op.tipo === 'solicitacao.criar' && <Text style={styles.corpo}>{op.corpo.descricao}</Text>}
+      {item.erro && <Text style={styles.warning}>{item.erro}</Text>}
+      {op.tipo === 'ordem.checklist' &&
+        ['conflito', 'rejeitada', 'arquivada'].includes(item.situacao) && (
           <>
-            <Text style={styles.label}>Suas respostas preservadas</Text>
-            {Object.entries(op.body.answers).map(([key, value]) => (
-              <Text key={key} style={styles.body}>
-                {order?.checklist.find((i) => i.id === key)?.label ?? key}: {value.toUpperCase()} ·
+            <Text style={styles.rotulo}>Suas respostas preservadas</Text>
+            {Object.entries(op.corpo.respostas).map(([key, value]) => (
+              <Text key={key} style={styles.corpo}>
+                {ordem?.checklist.find((i) => i.id === key)?.rotulo ?? key}: {value.toUpperCase()} ·
                 servidor:{' '}
-                {order?.checklist.find((i) => i.id === key)?.answer?.toUpperCase() ??
+                {ordem?.checklist.find((i) => i.id === key)?.resposta?.toUpperCase() ??
                   'sem resposta'}
               </Text>
             ))}
-            {entry.state === 'conflict' && order && (
-              <Button title="Revisar e reaplicar minhas respostas" secondary onPress={retry} />
+            {item.situacao === 'conflito' && ordem && (
+              <Button titulo="Revisar e reaplicar minhas respostas" secondary onPress={reenviar} />
             )}
           </>
         )}
-      {entry.state === 'rejected' && (
+      {item.situacao === 'rejeitada' && (
         <Text style={styles.caption}>
           Os dados foram preservados. Consulte o gestor para corrigir o acesso ou o registro.
         </Text>
       )}
-      {['conflict', 'rejected'].includes(entry.state) && (
-        <Button title="Arquivar tentativa neste aparelho" secondary onPress={dismiss} />
+      {['conflito', 'rejeitada'].includes(item.situacao) && (
+        <Button titulo="Arquivar tentativa neste aparelho" secondary onPress={arquivar} />
       )}
     </View>
   );
 }
 
 function Main() {
-  const [runtime, setRuntime] = useState<MobileRuntime | null>(null),
+  const [ambiente, setAmbiente] = useState<AmbienteAplicativo | null>(null),
     [loading, setLoading] = useState(true);
-  const [records, setRecords] = useState<CachedRecord[]>([]),
-    [queue, setQueue] = useState<OutboxEntry[]>([]),
+  const [records, setRecords] = useState<RegistroLocal[]>([]),
+    [fila, setFila] = useState<ItemFila[]>([]),
     [lastSync, setLastSync] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>('orders'),
+  const [tela, setTela] = useState<Tela>('ordens'),
     [search, setSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null),
     [requestAsset, setRequestAsset] = useState<string | null>(null),
@@ -464,33 +464,37 @@ function Main() {
     [connected, setConnected] = useState(false);
   const syncing = useRef(false),
     syncRef = useRef<() => void>(() => {});
-  const assets = records.filter((r) => r.entity === 'asset').map((r) => r.data as MobileAsset);
-  const orders = records.filter((r) => r.entity === 'order').map((r) => r.data as MobileOrder);
-  const unresolved = queue.filter((o) => ['pending', 'conflict', 'rejected'].includes(o.state));
-  async function refresh(rt: MobileRuntime) {
+  const ativos = records
+    .filter((r) => r.entidade === 'ativo')
+    .map((r) => r.dados as AtivoAplicativo);
+  const ordens = records
+    .filter((r) => r.entidade === 'ordem')
+    .map((r) => r.dados as OrdemAplicativo);
+  const pendencias = fila.filter((o) => ['pendente', 'conflito', 'rejeitada'].includes(o.situacao));
+  async function refresh(rt: AmbienteAplicativo) {
     const [items, operations, time] = await Promise.all([
-      rt.store.records(),
-      rt.store.queue(),
-      rt.store.lastSync(),
+      rt.base.registros(),
+      rt.base.fila(),
+      rt.base.ultimaSincronizacao(),
     ]);
     setRecords(items);
-    setQueue(operations);
+    setFila(operations);
     setLastSync(time);
   }
-  async function enter(session: SavedSession, fresh = false) {
-    const rt = await openRuntime(session);
+  async function enter(sessao: SessaoSalva, fresh = false) {
+    const rt = await abrirAmbiente(sessao);
     try {
       if (fresh) {
-        await rt.store.lockCache();
-        await saveSession(session);
+        await rt.base.bloquearCache();
+        await salvarSessao(sessao);
       }
       await refresh(rt);
     } catch (error) {
-      await rt.close();
+      await rt.fechar();
       throw error;
     }
-    setRuntime(rt);
-    setScreen(session.user.role === 'operator' ? 'assets' : 'orders');
+    setAmbiente(rt);
+    setTela(sessao.pessoa.papel === 'solicitante' ? 'ativos' : 'ordens');
     setMessage('');
     setSelectedOrder(null);
     setRequestAsset(null);
@@ -498,54 +502,54 @@ function Main() {
   useEffect(() => {
     void (async () => {
       try {
-        const session = await savedSession();
-        if (session && Date.parse(session.expires_at) > Date.now()) await enter(session);
-        else if (session)
+        const sessao = await sessaoSalva();
+        if (sessao && Date.parse(sessao.expira_em) > Date.now()) await enter(sessao);
+        else if (sessao)
           setMessage(
             'Sua sessão terminou. Conecte-se e entre novamente na mesma conta para recuperar a fila.',
           );
       } catch (e) {
-        setMessage(errorText(e));
+        setMessage(textoDoErro(e));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
   async function sync() {
-    if (!runtime || syncing.current) return;
+    if (!ambiente || syncing.current) return;
     syncing.current = true;
     setBusy(true);
     try {
-      if (Date.parse(runtime.session.expires_at) <= Date.now())
-        throw new SyncError('Sua sessão terminou. Entre novamente para continuar.', 401);
-      await runtime.engine.sync();
-      await refresh(runtime);
+      if (Date.parse(ambiente.sessao.expira_em) <= Date.now())
+        throw new ErroSincronizacao('Sua sessão terminou. Entre novamente para continuar.', 401);
+      await ambiente.motor.sincronizar();
+      await refresh(ambiente);
       setConnected(true);
       setMessage('');
     } catch (e) {
       setConnected(false);
-      setMessage(errorText(e));
-      if (e instanceof SyncError && e.status === 401) {
-        setRuntime(null);
+      setMessage(textoDoErro(e));
+      if (e instanceof ErroSincronizacao && e.status === 401) {
+        setAmbiente(null);
         setRecords([]);
-        setQueue([]);
+        setFila([]);
         setSelectedOrder(null);
         setRequestAsset(null);
         setScanner(false);
         try {
-          await runtime.invalidate();
+          await ambiente.invalidar();
         } catch {
           setMessage(
             'Acesso bloqueado. Não foi possível limpar o cache; entre novamente com conexão.',
           );
         } finally {
-          await runtime.close().catch(() => {});
+          await ambiente.fechar().catch(() => {});
         }
       } else {
         try {
-          await refresh(runtime);
+          await refresh(ambiente);
         } catch (localError) {
-          setMessage(errorText(localError));
+          setMessage(textoDoErro(localError));
         }
       }
     } finally {
@@ -555,14 +559,14 @@ function Main() {
   }
   syncRef.current = () => {
     // Avoid replacing the downloaded version while the user is filling a form.
-    if (runtime && Date.parse(runtime.session.expires_at) <= Date.now()) {
+    if (ambiente && Date.parse(ambiente.sessao.expira_em) <= Date.now()) {
       void sync();
       return;
     }
     if (!selectedOrder && !requestAsset && !scanner) void sync();
   };
   useEffect(() => {
-    if (!runtime) return;
+    if (!ambiente) return;
     syncRef.current();
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') syncRef.current();
@@ -574,28 +578,28 @@ function Main() {
       clearInterval(timer);
       listener.remove();
     };
-  }, [runtime]);
-  async function save(operation: MobileOperation) {
-    if (!runtime || Date.parse(runtime.session.expires_at) <= Date.now())
+  }, [ambiente]);
+  async function save(operation: OperacaoAplicativo) {
+    if (!ambiente || Date.parse(ambiente.sessao.expira_em) <= Date.now())
       throw new Error('Conecte-se e entre novamente antes de salvar.');
-    await runtime.store.enqueue(operation);
-    await refresh(runtime);
+    await ambiente.base.enfileirar(operation);
+    await refresh(ambiente);
     setMessage('Salvo neste aparelho. A confirmação aparecerá na fila após sincronizar.');
   }
   function onQr(value: string) {
     setScanner(false);
-    const token = qrIdentifier(value),
-      asset = assets.find((item) => item.qr_token === token);
-    if (!asset) {
+    const token = identificadorQr(value),
+      ativo = ativos.find((item) => item.token_qr === token);
+    if (!ativo) {
       Alert.alert(
         'Ativo não disponível',
         'Este QR não corresponde aos ativos baixados nesta unidade. Conecte-se e sincronize, ou busque pelo código.',
       );
       return;
     }
-    setRequestAsset(asset.id);
+    setRequestAsset(ativo.id);
   }
-  function retry(entry: OutboxEntry) {
+  function reenviar(item: ItemFila) {
     Alert.alert(
       'Reaplicar respostas?',
       'Confira suas respostas e as respostas atuais exibidas na fila. Esta ação cria uma nova tentativa sobre a versão baixada e mantém o conflito original no histórico.',
@@ -606,10 +610,10 @@ function Main() {
           onPress: () => {
             void (async () => {
               try {
-                await runtime!.store.reapplyChecklist(entry.id, Crypto.randomUUID());
-                await refresh(runtime!);
+                await ambiente!.base.reaplicarChecklist(item.id, Crypto.randomUUID());
+                await refresh(ambiente!);
               } catch (e) {
-                Alert.alert('Revisão não aplicada', errorText(e));
+                Alert.alert('Revisão não aplicada', textoDoErro(e));
               }
             })();
           },
@@ -617,7 +621,7 @@ function Main() {
       ],
     );
   }
-  function dismiss(entry: OutboxEntry) {
+  function arquivar(item: ItemFila) {
     Alert.alert(
       'Arquivar tentativa?',
       'Esta tentativa deixará as pendências. Os dados continuam no histórico deste aparelho; nenhum envio já recebido pelo servidor será desfeito.',
@@ -628,10 +632,10 @@ function Main() {
           onPress: () => {
             void (async () => {
               try {
-                await runtime!.store.dismiss(entry.id);
-                await refresh(runtime!);
+                await ambiente!.base.arquivar(item.id);
+                await refresh(ambiente!);
               } catch (e) {
-                Alert.alert('Não foi possível arquivar', errorText(e));
+                Alert.alert('Não foi possível arquivar', textoDoErro(e));
               }
             })();
           },
@@ -640,8 +644,8 @@ function Main() {
     );
   }
   async function logout() {
-    if (!runtime || busy) return;
-    if (unresolved.length) {
+    if (!ambiente || busy) return;
+    if (pendencias.length) {
       Alert.alert(
         'Há registros no aparelho',
         'Sincronize e revise as pendências antes de sair. Se o acesso mudou, os registros ficam protegidos para recuperação na mesma conta.',
@@ -650,18 +654,18 @@ function Main() {
     }
     setBusy(true);
     try {
-      await runtime.logout();
-      setRuntime(null);
+      await ambiente.sair();
+      setAmbiente(null);
       setRecords([]);
-      setQueue([]);
+      setFila([]);
       setMessage('');
       try {
-        await runtime.invalidate();
+        await ambiente.invalidar();
       } finally {
-        await runtime.close();
+        await ambiente.fechar();
       }
     } catch (e) {
-      setMessage(errorText(e));
+      setMessage(textoDoErro(e));
     } finally {
       setBusy(false);
     }
@@ -669,37 +673,37 @@ function Main() {
   if (loading)
     return (
       <View style={styles.content}>
-        <Text style={styles.title}>Preparando o aparelho…</Text>
+        <Text style={styles.titulo}>Preparando o aparelho…</Text>
       </View>
     );
-  if (!runtime) return <Login enter={(session) => enter(session, true)} message={message} />;
-  const order = orders.find((item) => item.id === selectedOrder),
-    asset = assets.find((item) => item.id === requestAsset);
+  if (!ambiente) return <Login enter={(sessao) => enter(sessao, true)} message={message} />;
+  const ordem = ordens.find((item) => item.id === selectedOrder),
+    ativo = ativos.find((item) => item.id === requestAsset);
   if (scanner) return <Scanner onCode={onQr} close={() => setScanner(false)} />;
-  if (asset)
+  if (ativo)
     return (
-      <RequestForm key={asset.id} asset={asset} save={save} back={() => setRequestAsset(null)} />
+      <RequestForm key={ativo.id} ativo={ativo} save={save} back={() => setRequestAsset(null)} />
     );
-  if (order)
+  if (ordem)
     return (
       <OrderDetail
-        key={order.id + ':' + order.version}
-        order={order}
-        asset={assets.find((a) => a.id === order.asset_id)}
-        queued={unresolved.some((o) => o.order_id === order.id)}
+        key={ordem.id + ':' + ordem.versao}
+        ordem={ordem}
+        ativo={ativos.find((a) => a.id === ordem.ativo_id)}
+        queued={pendencias.some((o) => o.ordem_id === ordem.id)}
         save={save}
         back={() => setSelectedOrder(null)}
       />
     );
-  const filteredAssets = assets.filter((item) =>
-    `${item.code} ${item.name} ${item.location}`.toLowerCase().includes(search.toLowerCase()),
+  const filteredAssets = ativos.filter((item) =>
+    `${item.codigo} ${item.nome} ${item.local}`.toLowerCase().includes(search.toLowerCase()),
   );
   return (
     <View style={{ flex: 1 }}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.logo}>pulso.</Text>
-          <Text style={styles.headerCaption}>{runtime.session.user.site_name}</Text>
+          <Text style={styles.headerCaption}>{ambiente.sessao.pessoa.unidade_nome}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -714,7 +718,7 @@ function Main() {
       <View style={styles.syncBar}>
         <Text style={styles.syncText}>
           {busy ? 'Sincronizando…' : connected ? 'Conectado ao servidor' : 'Dados neste aparelho'} ·{' '}
-          {unresolved.length} pendente(s)
+          {pendencias.length} pendente(s)
         </Text>
         <Pressable
           disabled={busy}
@@ -723,7 +727,7 @@ function Main() {
           onPress={() => void sync()}
           style={styles.syncButton}
         >
-          <Text style={styles.label}>Sincronizar</Text>
+          <Text style={styles.rotulo}>Sincronizar</Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -733,12 +737,12 @@ function Main() {
           </Text>
         )}
         <Text style={styles.eyebrow}>
-          OLÁ, {runtime.session.user.name.split(' ')[0].toUpperCase()}
+          OLÁ, {ambiente.sessao.pessoa.nome.split(' ')[0].toUpperCase()}
         </Text>
-        <Text style={styles.title}>
-          {screen === 'orders'
+        <Text style={styles.titulo}>
+          {tela === 'ordens'
             ? 'Minhas ordens'
-            : screen === 'assets'
+            : tela === 'ativos'
               ? 'Ativos da unidade'
               : 'Fila de sincronização'}
         </Text>
@@ -747,52 +751,52 @@ function Main() {
             ? 'Última atualização: ' + new Date(lastSync).toLocaleString('pt-BR')
             : 'Sincronize com conexão para baixar os primeiros dados.'}
         </Text>
-        {screen === 'orders' && (
+        {tela === 'ordens' && (
           <>
             <Text style={styles.muted}>
               Ordens atribuídas a você, prontas para consulta no chão de fábrica.
             </Text>
-            {orders.length === 0 && (
+            {ordens.length === 0 && (
               <View style={styles.card}>
-                <Text style={styles.body}>Nenhuma OS baixada para você.</Text>
+                <Text style={styles.corpo}>Nenhuma OS baixada para você.</Text>
               </View>
             )}
-            {[...orders]
-              .sort((a, b) => a.due_date.localeCompare(b.due_date))
+            {[...ordens]
+              .sort((a, b) => a.prazo.localeCompare(b.prazo))
               .map((item) => (
                 <Pressable
                   key={item.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Abrir OS ${item.number}: ${item.title}`}
+                  accessibilityLabel={`Abrir OS ${item.numero}: ${item.titulo}`}
                   disabled={busy}
                   onPress={() => setSelectedOrder(item.id)}
                   style={styles.card}
                 >
                   <View style={styles.row}>
-                    <Text style={styles.eyebrow}>OS {item.number}</Text>
-                    <Text style={styles.pill}>{statusLabels[item.status]}</Text>
+                    <Text style={styles.eyebrow}>OS {item.numero}</Text>
+                    <Text style={styles.pill}>{rotulosSituacao[item.situacao]}</Text>
                   </View>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardTitle}>{item.titulo}</Text>
                   <Text style={styles.muted}>
-                    {assets.find((a) => a.id === item.asset_id)?.code} ·{' '}
-                    {priorityLabels[item.priority]}
+                    {ativos.find((a) => a.id === item.ativo_id)?.codigo} ·{' '}
+                    {rotulosPrioridade[item.prioridade]}
                   </Text>
                   <Text style={styles.caption}>
-                    Prazo {item.due_date.split('-').reverse().join('/')}
+                    Prazo {item.prazo.split('-').reverse().join('/')}
                   </Text>
                 </Pressable>
               ))}
           </>
         )}
-        {screen === 'assets' && (
+        {tela === 'ativos' && (
           <>
             <Button
-              title="Ler QR Code da máquina"
+              titulo="Ler QR Code da máquina"
               onPress={() => setScanner(true)}
               disabled={!lastSync || busy}
             />
             <Field
-              label="Buscar ativo"
+              rotulo="Buscar ativo"
               value={search}
               onChange={setSearch}
               placeholder="Código, nome ou setor"
@@ -804,40 +808,40 @@ function Main() {
               <Pressable
                 key={item.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Abrir solicitação para ${item.code}`}
+                accessibilityLabel={`Abrir solicitação para ${item.codigo}`}
                 disabled={busy}
                 onPress={() => setRequestAsset(item.id)}
                 style={styles.card}
               >
                 <Text style={styles.eyebrow}>
-                  {item.code} · {item.location}
+                  {item.codigo} · {item.local}
                 </Text>
-                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardTitle}>{item.nome}</Text>
                 <Text style={styles.link}>Relatar um problema →</Text>
               </Pressable>
             ))}
           </>
         )}
-        {screen === 'queue' && (
+        {tela === 'fila' && (
           <>
             <Text style={styles.muted}>
               Os registros permanecem neste aparelho até a confirmação. Conflitos exigem revisão;
               suas respostas são preservadas.
             </Text>
-            {queue.length === 0 && (
+            {fila.length === 0 && (
               <View style={styles.card}>
-                <Text style={styles.body}>
+                <Text style={styles.corpo}>
                   Tudo em dia. Nenhuma operação registrada neste aparelho.
                 </Text>
               </View>
             )}
-            {[...queue].reverse().map((entry) => (
+            {[...fila].reverse().map((item) => (
               <QueueCard
-                key={entry.id}
-                entry={entry}
-                order={orders.find((o) => o.id === entry.order_id)}
-                retry={() => retry(entry)}
-                dismiss={() => dismiss(entry)}
+                key={item.id}
+                item={item}
+                ordem={ordens.find((o) => o.id === item.ordem_id)}
+                reenviar={() => reenviar(item)}
+                arquivar={() => arquivar(item)}
               />
             ))}
           </>
@@ -846,21 +850,21 @@ function Main() {
       <View accessibilityRole="tablist" style={styles.tabs}>
         {(
           [
-            ['orders', 'Minhas OS'],
-            ['assets', 'Ativos'],
-            ['queue', `Fila (${unresolved.length})`],
+            ['ordens', 'Minhas OS'],
+            ['ativos', 'Ativos'],
+            ['fila', `Fila (${pendencias.length})`],
           ] as const
         )
-          .filter(([key]) => key !== 'orders' || runtime.session.user.role === 'technician')
-          .map(([key, label]) => (
+          .filter(([key]) => key !== 'ordens' || ambiente.sessao.pessoa.papel === 'tecnico')
+          .map(([key, rotulo]) => (
             <Pressable
               key={key}
               accessibilityRole="tab"
-              accessibilityState={{ selected: screen === key }}
-              onPress={() => setScreen(key)}
-              style={[styles.tab, screen === key && styles.tabSelected]}
+              accessibilityState={{ selected: tela === key }}
+              onPress={() => setTela(key)}
+              style={[styles.tab, tela === key && styles.tabSelected]}
             >
-              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.rotulo}>{rotulo}</Text>
             </Pressable>
           ))}
       </View>
@@ -884,13 +888,13 @@ const styles = StyleSheet.create({
   wordmark: { color: '#143D35', fontSize: 44, fontWeight: '800', letterSpacing: -2 },
   hero: { color: '#143D35', fontSize: 36, fontWeight: '700', lineHeight: 41, letterSpacing: -1 },
   eyebrow: { color: '#497064', fontSize: 12, fontWeight: '700', letterSpacing: 0.7 },
-  title: { color: '#173E34', fontSize: 28, fontWeight: '700', lineHeight: 34 },
+  titulo: { color: '#173E34', fontSize: 28, fontWeight: '700', lineHeight: 34 },
   sectionTitle: { color: '#173E34', fontSize: 20, fontWeight: '700', marginTop: 12 },
   muted: { color: '#52665C', fontSize: 15, lineHeight: 23 },
   caption: { color: '#52665C', fontSize: 12, lineHeight: 19 },
-  body: { color: '#2A4035', fontSize: 16, lineHeight: 24 },
+  corpo: { color: '#2A4035', fontSize: 16, lineHeight: 24 },
   field: { gap: 8 },
-  label: { color: '#173E34', fontSize: 15, fontWeight: '600' },
+  rotulo: { color: '#173E34', fontSize: 15, fontWeight: '600' },
   input: {
     backgroundColor: '#FFFFFF',
     minHeight: 56,
@@ -975,8 +979,8 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   tabSelected: { backgroundColor: '#E5F1D5' },
-  answerRow: { flexDirection: 'row', gap: 8 },
-  answer: {
+  respostaRow: { flexDirection: 'row', gap: 8 },
+  resposta: {
     flex: 1,
     minHeight: 56,
     borderWidth: 1,
@@ -985,5 +989,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  answerSelected: { backgroundColor: '#D7EDAD', borderColor: '#638C40', borderWidth: 2 },
+  respostaSelected: { backgroundColor: '#D7EDAD', borderColor: '#638C40', borderWidth: 2 },
 });

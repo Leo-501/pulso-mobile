@@ -15,9 +15,21 @@ Aplicativo React Native/Expo para técnicos e solicitantes. Consome as validaç�
 
 O botão **Salvar no aparelho** persiste a operação. Texto apenas digitado e ainda não salvo não é um rascunho persistente. Campos não são enviados automaticamente ao digitar. Início/pausa/conclusão de OS, consumo de peças, fotos e apontamentos offline ainda estão pendentes.
 
+## Vocabulário
+
+Rotas, campos e o banco local estão em português brasileiro, segundo o glossário
+de [`docs/VOCABULARIO.md`](https://github.com/Leo-501/pulso-contracts/blob/vocabulario/docs/VOCABULARIO.md)
+do contrato, na versão **1.0.0**.
+
+O banco local mudou de esquema junto com o vocabulário, e o `BaseLocal` **recusa
+abrir** um banco da versão anterior em vez de criar as tabelas novas ao lado das
+velhas. O motivo é a fila: trabalho de campo ainda não enviado ficaria invisível,
+e perder isso em silêncio é pior do que recusar a abrir. Quem tiver a versão
+anterior instalada sincroniza por ela antes de atualizar.
+
 ## Contrato compartilhado
 
-As regras de validação, o protocolo 1 de sincronização e o motor offline (`OfflineStore`, `SyncEngine`) vêm do pacote [`@pulso/contracts`](https://github.com/Leo-501/pulso-contracts), fixado por tag no `package.json`. Eles não moram mais neste repositório.
+As regras de validação, o protocolo 1 de sincronização e o motor offline (`BaseLocal`, `MotorSincronizacao`) vêm do pacote [`@pulso/contracts`](https://github.com/Leo-501/pulso-contracts), fixado por tag no `package.json`. Eles não moram mais neste repositório.
 
 Consequência prática: **subir a tag do contrato é uma decisão de compatibilidade, não uma atualização de rotina.** Um aplicativo já instalado no aparelho do técnico continua falando com a API publicada. Antes de mover a tag, confirme que a API em produção já aceita a versão nova, e rode `pnpm test` no repositório `pulso-cmms` — é lá que mora o teste que exercita servidor e cliente juntos.
 
